@@ -124,7 +124,7 @@ def parse_falcon_samples(lines, step):
 
 
 def push_to_openfalcon(url, samples):
-    payload = json.dumps(list(samples))
+    payload = json.dumps(list(samples)).encode('utf8')
     request = Request(
         url, payload,
         {'Content-Type': 'application/json', 'Content-Length': len(payload)}
