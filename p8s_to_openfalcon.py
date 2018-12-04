@@ -13,7 +13,10 @@ except ImportError:
 
 
 logger = logging.Logger(__file__)
-logger.addHandler(logging.StreamHandler())
+handler = logging.StreamHandler()
+handler.setFormatter(
+    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
 
 
 def new_falcon_item(endpoint, metric, timestamp, step, value, counter_type, tags):
@@ -126,12 +129,15 @@ def push_to_openfalcon(url, samples):
         url, payload,
         {'Content-Type': 'application/json', 'Content-Length': len(payload)}
     )
+    logger.debug("Pushing samples to %s", url)
     response = urlopen(request, timeout=3)
     response.read()
     response.close()
+    logger.debug("Pushed samples to %s", url)
 
 
 def read_metric_source(url):
+    logger.debug("Start reading metrics from %s", url)
     request = Request(url)
     request.add_header('Accept-encoding', 'gzip')
     request.add_header('User-Agent', 'JuiceFS')
@@ -171,15 +177,18 @@ def main():
         sys.exit(1)
 
     while True:
-        lines = read_metric_source(args.source_url)
-        samples = parse_falcon_samples(lines, args.step)
+        try:
+            lines = read_metric_source(args.source_url)
+            samples = parse_falcon_samples(lines, args.step)
 
-        if args.output_only:
-            for s in samples:
-                print(s)
-            print()
-        else:
-            push_to_openfalcon(args.endpoint, samples)
+            if args.output_only:
+                for s in samples:
+                    print(s)
+                print()
+            else:
+                push_to_openfalcon(args.endpoint, samples)
+        except Exception:
+            logger.exception("Error occured")
         time.sleep(args.step)
 
 
