@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import re
 import sys
 import time
@@ -134,7 +135,7 @@ def read_metric_source(url):
     request.add_header('Accept-encoding', 'gzip')
     request.add_header('User-Agent', 'JuiceFS')
     response = urlopen(request, timeout=5)
-    return (l.rstrip() for l in response.readlines())
+    return (l.decode('utf8').rstrip() for l in response.readlines())
 
 
 def main():
