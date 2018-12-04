@@ -126,7 +126,7 @@ def push_to_openfalcon(url, samples):
         url, payload,
         {'Content-Type': 'application/json', 'Content-Length': len(payload)}
     )
-    response = urlopen(request)
+    response = urlopen(request, timeout=3)
     response.read()
     response.close()
 
