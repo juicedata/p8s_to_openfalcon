@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import re
 import sys
 import time
@@ -164,20 +165,22 @@ def main():
     )
     args = parser.parse_args()
 
-    lines = read_metric_source(args.source_url)
-    samples = parse_falcon_samples(lines, args.step)
-
-    if args.output_only:
-        for s in samples:
-            print(s)
-        return
-    
-    if not args.endpoint:
+    if not args.output_only and not args.endpoint:
         parser.print_usage()
         print("Endpoint not provided")
         sys.exit(1)
 
-    push_to_openfalcon(args.endpoint, samples)
+    while True:
+        lines = read_metric_source(args.source_url)
+        samples = parse_falcon_samples(lines, args.step)
+
+        if args.output_only:
+            for s in samples:
+                print(s)
+            print()
+        else:
+            push_to_openfalcon(args.endpoint, samples)
+        time.sleep(args.step)
 
 
 if __name__ == "__main__":
