@@ -13,7 +13,13 @@ chmod +x p8s_to_openfalcon.py
   ```bash
 ./p8s_to_openfalcon.py https://juicefs.com/console/vol/<filesystem>/metrics?token=<token> 10 --output_only
   ```
+
 ### Sync the metrics periodically to an open-falcon API
+  ```bash
+./p8s_to_openfalcon.py https://juicefs.com/console/vol/<filesystem>/metrics?token=<token> 10 --endpoint <your_openfalcon_host>/v1/push --loop
+```
+
+### Sync only once
   ```bash
 ./p8s_to_openfalcon.py https://juicefs.com/console/vol/<filesystem>/metrics?token=<token> 10 --endpoint <your_openfalcon_host>/v1/push
 ```

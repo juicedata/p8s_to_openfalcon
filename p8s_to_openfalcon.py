@@ -145,6 +145,21 @@ def read_metric_source(url):
     return (l.decode('utf8').rstrip() for l in response.readlines())
 
 
+def sync(source_url, endpoint, step, output_only):
+    try:
+        lines = read_metric_source(source_url)
+        samples = parse_falcon_samples(lines, step)
+
+        if output_only:
+            for s in samples:
+                print(s)
+            print()
+        else:
+            push_to_openfalcon(endpoint, samples)
+    except Exception:
+        logger.exception("Error occured")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -169,6 +184,11 @@ def main():
         help="Output the transformed sample without actually pushing",
         action="store_true"
     )
+    parser.add_argument(
+        "--loop",
+        help="Sync periodically in a loop",
+        action="store_true"
+    )
     args = parser.parse_args()
 
     if not args.output_only and not args.endpoint:
@@ -176,20 +196,12 @@ def main():
         print("Endpoint not provided")
         sys.exit(1)
 
-    while True:
-        try:
-            lines = read_metric_source(args.source_url)
-            samples = parse_falcon_samples(lines, args.step)
-
-            if args.output_only:
-                for s in samples:
-                    print(s)
-                print()
-            else:
-                push_to_openfalcon(args.endpoint, samples)
-        except Exception:
-            logger.exception("Error occured")
-        time.sleep(args.step)
+    if args.loop:
+        while True:
+            sync(args.source_url, args.endpoint, args.step, args.output_only)
+            time.sleep(args.step)
+    else:
+        sync(args.source_url, args.endpoint, args.step, args.output_only)
 
 
 if __name__ == "__main__":
