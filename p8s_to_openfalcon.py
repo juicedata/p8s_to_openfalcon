@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import os
 import re
 import sys
+import subprocess
 import time
 import json
 import argparse
@@ -94,16 +96,16 @@ def _parse_labels(it, text):
     return labels
 
 
-def to_falcon_item(type_, line, step, timestamp):
+def to_falcon_item(type_, line, step, timestamp, endpoint):
     info, val = line.rsplit(" ", 1)
     metric, _, labels = info.partition('{')
     parsed_labels = _parse_labels(labels, line)
-    return new_falcon_item('test', metric, timestamp, step, val, type_, parsed_labels)
+    return new_falcon_item(endpoint, metric, timestamp, step, val, type_, parsed_labels)
 
 TYPE_PREFIX = "# TYPE "
 
 
-def parse_falcon_samples(lines, step):
+def parse_falcon_samples(lines, step, endpoint='test'):
     ts = int(time.time())
     cur_type = None
     while True:
@@ -117,7 +119,7 @@ def parse_falcon_samples(lines, step):
                     cur_type, line
                 )
                 continue
-            yield to_falcon_item(cur_type, line, step, ts)
+            yield to_falcon_item(cur_type, line, step, ts, endpoint)
         elif line.startswith(TYPE_PREFIX):
             parts = line[len(TYPE_PREFIX):].split(" ")
             cur_type = parts[1].upper()
@@ -138,24 +140,33 @@ def push_to_openfalcon(url, samples):
 
 def read_metric_source(url):
     logger.debug("Start reading metrics from %s", url)
-    request = Request(url)
-    request.add_header('Accept-encoding', 'gzip')
-    request.add_header('User-Agent', 'JuiceFS')
-    response = urlopen(request, timeout=5)
-    return (l.decode('utf8').rstrip() for l in response.readlines())
+    if url.startswith('http'):
+        request = Request(url)
+        request.add_header('Accept-encoding', 'gzip')
+        request.add_header('User-Agent', 'JuiceFS')
+        response = urlopen(request, timeout=5)
+        return (l.decode('utf8').rstrip() for l in response.readlines())
+    elif url.endswith('meta.py'): # meta.py --metric
+        cmd = os.path.abspath(url)
+        args = [cmd, '--no-update', '--metric']
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+        output = proc.communicate()[0].strip()
+        return (l.decode('utf8').rstrip() for l in output.split('\n'))
+    else:
+        raise ValueError('Unsupported url format')
 
 
-def sync(source_url, endpoint, step, output_only):
+def sync(source_url, falcon_push_api, endpoint, step, output_only):
     try:
         lines = read_metric_source(source_url)
-        samples = parse_falcon_samples(lines, step)
+        samples = parse_falcon_samples(lines, step, endpoint)
 
         if output_only:
             for s in samples:
                 print(s)
             print()
         else:
-            push_to_openfalcon(endpoint, samples)
+            push_to_openfalcon(falcon_push_api, samples)
     except Exception:
         logger.exception("Error occured")
 
@@ -177,7 +188,8 @@ def main():
     )
     parser.add_argument(
         "--endpoint",
-        help="Endpoint of the open-falcon samples"
+        help="Endpoint of the open-falcon samples",
+        default="test"
     )
     parser.add_argument(
         "--output_only",
@@ -191,17 +203,17 @@ def main():
     )
     args = parser.parse_args()
 
-    if not args.output_only and not args.endpoint:
+    if not args.output_only and not args.falcon_push_api:
         parser.print_usage()
-        print("Endpoint not provided")
+        print("falcon_push_api not provided")
         sys.exit(1)
 
     if args.loop:
         while True:
-            sync(args.source_url, args.endpoint, args.step, args.output_only)
+            sync(args.source_url, args.falcon_push_api,  args.endpoint, args.step, args.output_only)
             time.sleep(args.step)
     else:
-        sync(args.source_url, args.endpoint, args.step, args.output_only)
+        sync(args.source_url, args.falcon_push_api, args.endpoint, args.step, args.output_only)
 
 
 if __name__ == "__main__":
