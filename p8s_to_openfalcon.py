@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import os
 import re
 import sys
-import subprocess
 import time
 import json
 import argparse
@@ -146,12 +144,8 @@ def read_metric_source(url):
         request.add_header('User-Agent', 'JuiceFS')
         response = urlopen(request, timeout=5)
         return (l.decode('utf8').rstrip() for l in response.readlines())
-    elif url.endswith('meta.py'): # meta.py --metric
-        cmd = os.path.abspath(url)
-        args = [cmd, '--no-update', '--metric']
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE)
-        output = proc.communicate()[0].strip()
-        return (l.decode('utf8').rstrip() for l in output.split('\n'))
+    elif url == '-': # read from stdin
+        return (l.decode('utf8').rstrip() for l in sys.stdin.readlines())
     else:
         raise ValueError('Unsupported url format')
 
