@@ -6,10 +6,15 @@ import time
 import json
 import argparse
 import logging
+import gzip
 try:
     from urllib.request import urlopen, Request
 except ImportError:
     from urllib2 import urlopen, Request
+try:
+    from StringIO import StringIO as BytesIO
+except ImportError:
+    from io import BytesIO
 
 
 logger = logging.Logger(__file__)
@@ -143,6 +148,10 @@ def read_metric_source(url):
         request.add_header('Accept-encoding', 'gzip')
         request.add_header('User-Agent', 'JuiceFS')
         response = urlopen(request, timeout=5)
+        if response.info().get('Content-Encoding') == 'gzip':
+            buf = BytesIO(response.read())
+            f = gzip.GzipFile(fileobj=buf)
+            return (l.decode('utf8').rstrip() for l in f.readlines())
         return (l.decode('utf8').rstrip() for l in response.readlines())
     elif url == '-': # read from stdin
         return (l.decode('utf8').rstrip() for l in sys.stdin.readlines())
